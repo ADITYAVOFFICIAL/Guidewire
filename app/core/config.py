@@ -19,11 +19,11 @@ class Settings(BaseSettings):
 
     # Model/Feature Paths (relative to where the app runs, e.g., inside container)
     # --- Ensure these files are copied to these locations in your Docker image ---
-    MODEL_FILE_PATH: str = "/app/ml_models/xgboost_pod_failure_model_best.json"
-    FEATURE_FILE_PATH: str = "/app/ml_models/features.joblib"
+    MODEL_FILE_PATH: str = "/Users/adityaverma/Documents/GitHub/Guidewire/app/ml_models/xgboost_pod_failure_model_best.json"
+    FEATURE_FILE_PATH: str = "/Users/adityaverma/Documents/GitHub/Guidewire/app/ml_models/features.joblib"
     # --- ADDED: Path for node data file ---
     # Make sure this file is also available at this path in the running environment
-    NODE_FILE_PATH: str = "/app/data/openb_node_list_all_node.csv" # Adjust path if needed
+    NODE_FILE_PATH: str = "/Users/adityaverma/Documents/GitHub/Guidewire/app/data/openb_node_list_all_node.csv" # Adjust path if needed
 
     # Kubernetes Config - leave blank to use in-cluster or default kubeconfig
     KUBE_CONFIG_PATH: Optional[str] = None
