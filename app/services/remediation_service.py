@@ -101,7 +101,7 @@ class RemediationService:
                         "content": prompt,
                     }
                 ],
-                model="llama3-8b-8192", # Or other suitable model like llama3-70b-8192 if more power needed
+                model="llama-3.3-70b-specdec", # Or other suitable model like llama3-70b-8192 if more power needed
                 temperature=0.3, # Lower temperature for more focused, less creative recommendations
                 max_tokens=250, # Adjust as needed
                 # top_p=0.9, # Optional: Adjust nucleus sampling
