@@ -1,8 +1,8 @@
-# app/main.py
 import logging
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware
 from app.core.config import settings
 from app.core.logging_config import setup_logging
 # Correct import for the api router based on typical structure
@@ -18,7 +18,13 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     version="0.1.0" # Add a version
 )
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
 # Include API router
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 

@@ -3,80 +3,386 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guidewire FastAPI Client</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Pod Remediation Agent Client</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Optional: Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 960px;
+        }
+        .card {
+            margin-bottom: 1.5rem;
+        }
+        .result-card .card-header {
+            font-weight: bold;
+        }
+        .result-card pre {
+            white-space: pre-wrap; /* Allow wrapping for long lines */
+            word-break: break-word; /* Break words if necessary */
+            background-color: #e9ecef;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+        }
+        .action-card {
+            margin-bottom: 1rem;
+        }
+        .action-card code {
+            background-color: #e9ecef;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+        .spinner-border-sm {
+             vertical-align: middle;
+        }
+    </style>
 </head>
 <body>
     <div class="container py-5">
-        <h1 class="mb-4">Guidewire FastAPI Client</h1>
-        <form id="predictForm">
-            <div class="mb-3">
-                <label for="pod_name" class="form-label">Pod Name</label>
-                <input type="text" class="form-control" id="pod_name" name="pod_name" required>
+        <header class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+             <h1 class="h3"><i class="bi bi-shield-exclamation me-2"></i>Pod Remediation Agent</h1>
+             <span class="badge bg-secondary" id="apiStatus" title="API Status">Checking...</span>
+        </header>
+
+        <div class="row">
+            <div class="col-lg-5">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        Pod Input Data
+                    </div>
+                    <div class="card-body">
+                        <form id="predictForm">
+                            <div class="mb-3">
+                                <label for="pod_name" class="form-label">Pod Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="pod_name" name="pod_name" placeholder="e.g., my-app-7f6c..." required>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label for="cpu_milli" class="form-label">CPU Request (m)</label>
+                                    <input type="number" class="form-control" id="cpu_milli" name="cpu_milli" placeholder="e.g., 500" min="0">
+                                    <div class="form-text">Millicores (leave empty for default)</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="memory_mib" class="form-label">Memory Request (MiB)</label>
+                                    <input type="number" class="form-control" id="memory_mib" name="memory_mib" placeholder="e.g., 1024" min="0">
+                                    <div class="form-text">Mebibytes (leave empty for default)</div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label for="num_gpu" class="form-label">GPU Count</label>
+                                    <input type="number" class="form-control" id="num_gpu" name="num_gpu" placeholder="e.g., 0" min="0">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="gpu_milli" class="form-label">GPU Request (m)</label>
+                                    <input type="number" class="form-control" id="gpu_milli" name="gpu_milli" placeholder="e.g., 0" min="0">
+                                    <div class="form-text">If using shared GPU</div>
+                                </div>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label for="creation_time" class="form-label">Creation Time</label>
+                                    <input type="number" step="any" class="form-control" id="creation_time" name="creation_time" placeholder="Unix timestamp (sec)">
+                                    <div class="form-text">Pod creation epoch timestamp (optional but recommended)</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="scheduled_time" class="form-label">Scheduled Time</label>
+                                    <input type="number" step="any" class="form-control" id="scheduled_time" name="scheduled_time" placeholder="Unix timestamp (sec)">
+                                    <div class="form-text">Pod scheduling epoch timestamp (optional)</div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="qos" class="form-label">Quality of Service (QoS)</label>
+                                <select class="form-select" id="qos" name="qos">
+                                    <option value="" selected>Select QoS (optional)</option>
+                                    <option value="Guaranteed">Guaranteed</option>
+                                    <option value="Burstable">Burstable</option>
+                                    <option value="BE">BestEffort (BE)</option>
+                                    <option value="LS">LatencySensitive (LS)</option>
+                                    <option value="Unknown">Unknown</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100" id="submitButton">
+                                <span id="buttonText">Predict & Remediate</span>
+                                <span class="spinner-border spinner-border-sm d-none" id="loadingSpinner" role="status" aria-hidden="true"></span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div class="mb-3">
-                <label for="cpu_milli" class="form-label">CPU Milli</label>
-                <input type="number" class="form-control" id="cpu_milli" name="cpu_milli">
+
+            <div class="col-lg-7">
+                 <div id="resultsContainer">
+                     <div class="card shadow-sm result-card border-light">
+                         <div class="card-header bg-light text-muted">
+                             Results
+                         </div>
+                         <div class="card-body text-center text-muted">
+                             <i class="bi bi-info-circle fs-3 mb-2"></i>
+                             <p>Submit pod details to see prediction and remediation actions.</p>
+                         </div>
+                     </div>
+                 </div>
             </div>
-            <div class="mb-3">
-                <label for="memory_mib" class="form-label">Memory Mib</label>
-                <input type="number" class="form-control" id="memory_mib" name="memory_mib">
-            </div>
-            <div class="mb-3">
-                <label for="num_gpu" class="form-label">Number of GPUs</label>
-                <input type="number" class="form-control" id="num_gpu" name="num_gpu">
-            </div>
-            <div class="mb-3">
-                <label for="gpu_milli" class="form-label">GPU Milli</label>
-                <input type="number" class="form-control" id="gpu_milli" name="gpu_milli">
-            </div>
-            <div class="mb-3">
-                <label for="qos" class="form-label">QoS</label>
-                <select class="form-select" id="qos" name="qos">
-                    <option value="BE">BE</option>
-                    <option value="LS">LS</option>
-                    <option value="Burstable">Burstable</option>
-                    <option value="Guaranteed">Guaranteed</option>
-                    <option value="Unknown">Unknown</option>
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary">Predict and Remediate</button>
-        </form>
-        <div class="mt-4" id="result"></div>
+        </div>
     </div>
 
-    <script>
-        document.getElementById('predictForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-            const data = {
-                pod_name: document.getElementById('pod_name').value,
-                cpu_milli: Number(document.getElementById('cpu_milli').value) || null,
-                memory_mib: Number(document.getElementById('memory_mib').value) || null,
-                num_gpu: Number(document.getElementById('num_gpu').value) || null,
-                gpu_milli: Number(document.getElementById('gpu_milli').value) || null,
-                qos: document.getElementById('qos').value
+    <script>
+        const predictForm = document.getElementById('predictForm');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const submitButton = document.getElementById('submitButton');
+        const buttonText = document.getElementById('buttonText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const apiStatusBadge = document.getElementById('apiStatus');
+        const getTimestampOrNull = (id) => {
+                const value = document.getElementById(id).value;
+                // Return timestamp as float if provided, otherwise null
+                return value === '' ? null : parseFloat(value);
             };
 
+            const formData = {
+                pod_name: document.getElementById('pod_name').value,
+                cpu_milli: getNumberOrNull('cpu_milli'),
+                memory_mib: getNumberOrNull('memory_mib'),
+                num_gpu: getNumberOrNull('num_gpu'),
+                gpu_milli: getNumberOrNull('gpu_milli'),
+                qos: document.getElementById('qos').value || null, // Send null if empty
+                // Add the new timestamp fields
+                creation_time: getTimestampOrNull('creation_time'),
+                scheduled_time: getTimestampOrNull('scheduled_time')
+            };
+        // --- Configuration ---
+        // Adjust this if your FastAPI app runs on a different port or host
+        const API_BASE_URL = 'http://127.0.0.1:8000';
+        const API_ENDPOINT = `${API_BASE_URL}/api/v1/remediation/predict-and-remediate`;
+        const HEALTH_CHECK_ENDPOINT = `${API_BASE_URL}/`; // Root endpoint for basic check
+
+        // --- Helper Functions ---
+        function setLoading(isLoading) {
+            if (isLoading) {
+                buttonText.textContent = 'Processing...';
+                loadingSpinner.classList.remove('d-none');
+                submitButton.disabled = true;
+            } else {
+                buttonText.textContent = 'Predict & Remediate';
+                loadingSpinner.classList.add('d-none');
+                submitButton.disabled = false;
+            }
+        }
+
+        function displayError(message) {
+            resultsContainer.innerHTML = `
+                <div class="alert alert-danger d-flex align-items-center" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div>
+                        <strong>Error:</strong> ${message}
+                    </div>
+                </div>`;
+        }
+
+        function formatAction(action) {
+            let commandHtml = '';
+            if (action.command) {
+                commandHtml = `<p class="mb-1"><small>Suggested Command:</small><br><code>${action.command}</code></p>`;
+            }
+            let executedHtml = '';
+            if (action.executed !== null) {
+                 executedHtml = `<span class="badge bg-${action.executed ? 'success' : 'secondary'} float-end">${action.executed ? 'Executed' : 'Not Executed'}</span>`;
+            }
+             let errorHtml = '';
+            if (action.error) {
+                 errorHtml = `<div class="mt-2 text-danger small"><i class="bi bi-x-octagon me-1"></i>Error: ${action.error}</div>`;
+            }
+
+            // Handle LLM recommendations potentially having markdown-like formatting
+            let recommendationHtml = action.recommendation.replace(/\n/g, '<br>');
+             // Basic code block formatting if LLM uses backticks
+             recommendationHtml = recommendationHtml.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+            return `
+                <div class="card action-card shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">
+                            <i class="bi bi-gear me-1"></i>Action Type: ${action.action_type}
+                            ${executedHtml}
+                        </h6>
+                        <p class="card-text mb-1"><small>Reason:</small> ${action.reason}</p>
+                        <p class="card-text mb-1"><small>Recommendation:</small></p>
+                        <div class="p-2 bg-light border rounded mb-2">${recommendationHtml}</div>
+                        ${commandHtml}
+                        ${errorHtml}
+                    </div>
+                </div>`;
+        }
+
+        function displayResult(result) {
+            const probability = result.failure_probability;
+            const threshold = 0.75; // Ideally get from config, hardcoded here for simplicity
+            const isTriggered = result.triggered;
+            const probabilityPercent = (probability * 100).toFixed(2);
+            const probabilityColor = probability > threshold ? 'danger' : (probability > threshold * 0.7 ? 'warning' : 'success');
+            const triggeredText = isTriggered ? 'Yes' : 'No';
+            const triggeredColor = isTriggered ? 'danger' : 'success';
+
+            let actionsHtml = '<p class="text-muted">No actions determined.</p>';
+            if (result.actions_determined && result.actions_determined.length > 0) {
+                actionsHtml = result.actions_determined.map(formatAction).join('');
+            }
+
+            resultsContainer.innerHTML = `
+                <div class="card shadow-sm result-card border-${probabilityColor}">
+                    <div class="card-header bg-${probabilityColor} bg-opacity-10">
+                        Prediction Results for: ${result.pod_name}
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Failure Probability:</strong>
+                                <span class="badge fs-6 text-bg-${probabilityColor}">${probabilityPercent}%</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Threshold Triggered:</strong>
+                                <span class="badge fs-6 text-bg-${triggeredColor}">${triggeredText}</span>
+                                <small class="text-muted">(Threshold: ${(threshold * 100)}%)</small>
+                            </div>
+                        </div>
+                         <div class="row mb-3">
+                             <div class="col-md-6">
+                                <strong>Namespace:</strong> ${result.namespace}
+                            </div>
+                             <div class="col-md-6">
+                                <strong>Action Mode:</strong> <span class="badge bg-info">${result.action_mode}</span>
+                            </div>
+                        </div>
+                        <hr>
+                        <h5 class="mt-3">Determined Actions:</h5>
+                        ${actionsHtml}
+                    </div>
+                </div>
+                 <div class="card shadow-sm mt-3">
+                    <div class="card-header bg-light text-muted">
+                        Raw JSON Response
+                    </div>
+                    <div class="card-body">
+                        <pre><code>${JSON.stringify(result, null, 2)}</code></pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- API Check ---
+        async function checkApiStatus() {
             try {
-                const response = await fetch('/api/v1/remediation/predict-and-remediate', {
+                const response = await fetch(HEALTH_CHECK_ENDPOINT, { method: 'GET' });
+                if (response.ok) {
+                    apiStatusBadge.textContent = 'API Online';
+                    apiStatusBadge.classList.remove('bg-secondary', 'bg-danger');
+                    apiStatusBadge.classList.add('bg-success');
+                    apiStatusBadge.title = 'API connection successful';
+                } else {
+                    throw new Error(`Status: ${response.status}`);
+                }
+            } catch (error) {
+                apiStatusBadge.textContent = 'API Offline';
+                apiStatusBadge.classList.remove('bg-secondary', 'bg-success');
+                apiStatusBadge.classList.add('bg-danger');
+                apiStatusBadge.title = `API connection failed: ${error.message}`;
+                console.error("API health check failed:", error);
+            }
+        }
+
+
+        // --- Event Listener ---
+        predictForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            setLoading(true);
+            resultsContainer.innerHTML = ''; // Clear previous results
+
+            // Helper to get number or null
+            const getNumberOrNull = (id) => {
+                const value = document.getElementById(id).value;
+                return value === '' ? null : Number(value);
+            };
+
+            const formData = {
+                pod_name: document.getElementById('pod_name').value,
+                cpu_milli: getNumberOrNull('cpu_milli'),
+                memory_mib: getNumberOrNull('memory_mib'),
+                num_gpu: getNumberOrNull('num_gpu'),
+                gpu_milli: getNumberOrNull('gpu_milli'),
+                qos: document.getElementById('qos').value || null // Send null if empty
+            };
+
+            // Basic validation (ensure pod_name is not empty)
+            if (!formData.pod_name) {
+                 displayError("Pod Name is required.");
+                 setLoading(false);
+                 return;
+            }
+
+            console.log("Sending data:", formData);
+
+            try {
+                const response = await fetch(API_ENDPOINT, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json' // Explicitly accept JSON
+                    },
+                    body: JSON.stringify(formData)
                 });
 
+                const responseContentType = response.headers.get("content-type");
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    let errorMsg = `HTTP error! Status: ${response.status} ${response.statusText}`;
+                    // Try to parse error details if JSON
+                    if (responseContentType && responseContentType.includes("application/json")) {
+                        try {
+                            const errorData = await response.json();
+                            errorMsg += ` - ${JSON.stringify(errorData.detail || errorData)}`;
+                        } catch (parseError) {
+                             errorMsg += " (Could not parse error response body)";
+                        }
+                    } else {
+                         // Handle non-JSON error response (e.g., plain text, HTML)
+                         const textError = await response.text();
+                         errorMsg += ` - Response: ${textError.substring(0, 200)}...`; // Show snippet
+                    }
+                    throw new Error(errorMsg);
+                }
+
+                 if (!responseContentType || !responseContentType.includes("application/json")) {
+                    throw new Error(`Unexpected content type: ${responseContentType}. Expected JSON.`);
                 }
 
                 const result = await response.json();
-                document.getElementById('result').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+                console.log("Received result:", result);
+                displayResult(result);
+
             } catch (error) {
-                document.getElementById('result').innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
+                console.error('Fetch error:', error);
+                displayError(error.message || 'An unknown error occurred during the request.');
+            } finally {
+                setLoading(false);
             }
         });
-    </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        // --- Initial API Status Check ---
+        document.addEventListener('DOMContentLoaded', checkApiStatus);
+
+    </script>
 </body>
 </html>
