@@ -141,36 +141,20 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     <script>
+        // --- Get DOM Elements ---
         const predictForm = document.getElementById('predictForm');
         const resultsContainer = document.getElementById('resultsContainer');
         const submitButton = document.getElementById('submitButton');
         const buttonText = document.getElementById('buttonText');
         const loadingSpinner = document.getElementById('loadingSpinner');
         const apiStatusBadge = document.getElementById('apiStatus');
-        const getTimestampOrNull = (id) => {
-                const value = document.getElementById(id).value;
-                // Return timestamp as float if provided, otherwise null
-                return value === '' ? null : parseFloat(value);
-            };
 
-            const formData = {
-                pod_name: document.getElementById('pod_name').value,
-                cpu_milli: getNumberOrNull('cpu_milli'),
-                memory_mib: getNumberOrNull('memory_mib'),
-                num_gpu: getNumberOrNull('num_gpu'),
-                gpu_milli: getNumberOrNull('gpu_milli'),
-                qos: document.getElementById('qos').value || null, // Send null if empty
-                // Add the new timestamp fields
-                creation_time: getTimestampOrNull('creation_time'),
-                scheduled_time: getTimestampOrNull('scheduled_time')
-            };
         // --- Configuration ---
-        // Adjust this if your FastAPI app runs on a different port or host
-        const API_BASE_URL = 'http://127.0.0.1:8000';
+        const API_BASE_URL = 'http://127.0.0.1:8000'; // Adjust if needed
         const API_ENDPOINT = `${API_BASE_URL}/api/v1/remediation/predict-and-remediate`;
-        const HEALTH_CHECK_ENDPOINT = `${API_BASE_URL}/`; // Root endpoint for basic check
+        const HEALTH_CHECK_ENDPOINT = `${API_BASE_URL}/`;
 
-        // --- Helper Functions ---
+        // --- Helper Functions (Defined Globally) ---
         function setLoading(isLoading) {
             if (isLoading) {
                 buttonText.textContent = 'Processing...';
@@ -199,7 +183,8 @@
                 commandHtml = `<p class="mb-1"><small>Suggested Command:</small><br><code>${action.command}</code></p>`;
             }
             let executedHtml = '';
-            if (action.executed !== null) {
+            // Check specifically for boolean true/false, not just existence
+            if (typeof action.executed === 'boolean') {
                  executedHtml = `<span class="badge bg-${action.executed ? 'success' : 'secondary'} float-end">${action.executed ? 'Executed' : 'Not Executed'}</span>`;
             }
              let errorHtml = '';
@@ -209,8 +194,7 @@
 
             // Handle LLM recommendations potentially having markdown-like formatting
             let recommendationHtml = action.recommendation.replace(/\n/g, '<br>');
-             // Basic code block formatting if LLM uses backticks
-             recommendationHtml = recommendationHtml.replace(/`([^`]+)`/g, '<code>$1</code>');
+             recommendationHtml = recommendationHtml.replace(/`([^`]+)`/g, '<code>$1</code>'); // Basic code formatting
 
             return `
                 <div class="card action-card shadow-sm">
@@ -230,14 +214,22 @@
 
         function displayResult(result) {
             const probability = result.failure_probability;
-            const threshold = 0.75; // Ideally get from config, hardcoded here for simplicity
+            // Handle potential error state where probability is -1.0
+            const isPredictionError = probability < 0;
+            const threshold = 0.75; // Hardcoded for simplicity
             const isTriggered = result.triggered;
-            const probabilityPercent = (probability * 100).toFixed(2);
-            const probabilityColor = probability > threshold ? 'danger' : (probability > threshold * 0.7 ? 'warning' : 'success');
+
+            let probabilityPercent = 'N/A';
+            let probabilityColor = 'secondary'; // Default color for error state
+            if (!isPredictionError) {
+                probabilityPercent = (probability * 100).toFixed(2);
+                probabilityColor = probability > threshold ? 'danger' : (probability > threshold * 0.7 ? 'warning' : 'success');
+            }
+
             const triggeredText = isTriggered ? 'Yes' : 'No';
             const triggeredColor = isTriggered ? 'danger' : 'success';
 
-            let actionsHtml = '<p class="text-muted">No actions determined.</p>';
+            let actionsHtml = '<p class="text-muted">No actions determined or prediction failed.</p>';
             if (result.actions_determined && result.actions_determined.length > 0) {
                 actionsHtml = result.actions_determined.map(formatAction).join('');
             }
@@ -245,13 +237,13 @@
             resultsContainer.innerHTML = `
                 <div class="card shadow-sm result-card border-${probabilityColor}">
                     <div class="card-header bg-${probabilityColor} bg-opacity-10">
-                        Prediction Results for: ${result.pod_name}
+                        Prediction Results for: ${result.pod_name || 'N/A'}
                     </div>
                     <div class="card-body">
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <strong>Failure Probability:</strong>
-                                <span class="badge fs-6 text-bg-${probabilityColor}">${probabilityPercent}%</span>
+                                <span class="badge fs-6 text-bg-${probabilityColor}">${isPredictionError ? 'Error' : probabilityPercent + '%'}</span>
                             </div>
                             <div class="col-md-6">
                                 <strong>Threshold Triggered:</strong>
@@ -261,10 +253,10 @@
                         </div>
                          <div class="row mb-3">
                              <div class="col-md-6">
-                                <strong>Namespace:</strong> ${result.namespace}
+                                <strong>Namespace:</strong> ${result.namespace || 'N/A'}
                             </div>
                              <div class="col-md-6">
-                                <strong>Action Mode:</strong> <span class="badge bg-info">${result.action_mode}</span>
+                                <strong>Action Mode:</strong> <span class="badge bg-info">${result.action_mode || 'N/A'}</span>
                             </div>
                         </div>
                         <hr>
@@ -304,29 +296,39 @@
             }
         }
 
+        // --- Global Helper to get number or null ---
+        const getNumberOrNull = (id) => {
+            const value = document.getElementById(id).value;
+            // Return number if value is not empty, otherwise null
+            return value === '' ? null : Number(value);
+        };
+
+        // --- Global Helper to get timestamp or null ---
+        const getTimestampOrNull = (id) => {
+            const value = document.getElementById(id).value;
+            // Return timestamp as float if provided, otherwise null
+            return value === '' ? null : parseFloat(value);
+        };
 
         // --- Event Listener ---
         predictForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
+            event.preventDefault(); // Prevent default form submission
             setLoading(true);
             resultsContainer.innerHTML = ''; // Clear previous results
 
-            // Helper to get number or null
-            const getNumberOrNull = (id) => {
-                const value = document.getElementById(id).value;
-                return value === '' ? null : Number(value);
-            };
-
+            // Construct formData INSIDE the listener using current form values
             const formData = {
                 pod_name: document.getElementById('pod_name').value,
-                cpu_milli: getNumberOrNull('cpu_milli'),
-                memory_mib: getNumberOrNull('memory_mib'),
-                num_gpu: getNumberOrNull('num_gpu'),
-                gpu_milli: getNumberOrNull('gpu_milli'),
-                qos: document.getElementById('qos').value || null // Send null if empty
+                cpu_milli: getNumberOrNull('cpu_milli'), // Use global helper
+                memory_mib: getNumberOrNull('memory_mib'), // Use global helper
+                num_gpu: getNumberOrNull('num_gpu'), // Use global helper
+                gpu_milli: getNumberOrNull('gpu_milli'), // Use global helper
+                qos: document.getElementById('qos').value || null, // Send null if empty string selected
+                creation_time: getTimestampOrNull('creation_time'), // Use global helper
+                scheduled_time: getTimestampOrNull('scheduled_time') // Use global helper
             };
 
-            // Basic validation (ensure pod_name is not empty)
+            // Basic validation
             if (!formData.pod_name) {
                  displayError("Pod Name is required.");
                  setLoading(false);
@@ -340,37 +342,51 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json' // Explicitly accept JSON
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(formData)
                 });
 
                 const responseContentType = response.headers.get("content-type");
+
+                // Always try to parse JSON first for more detailed errors from FastAPI
+                let responseData = null;
+                if (responseContentType && responseContentType.includes("application/json")) {
+                    try {
+                        responseData = await response.json();
+                    } catch (jsonError) {
+                        // If JSON parsing fails even with correct content type, treat as error
+                        console.error("Failed to parse JSON response:", jsonError);
+                        throw new Error(`Failed to parse JSON response from server (Status: ${response.status})`);
+                    }
+                }
+
                 if (!response.ok) {
                     let errorMsg = `HTTP error! Status: ${response.status} ${response.statusText}`;
-                    // Try to parse error details if JSON
-                    if (responseContentType && responseContentType.includes("application/json")) {
-                        try {
-                            const errorData = await response.json();
-                            errorMsg += ` - ${JSON.stringify(errorData.detail || errorData)}`;
-                        } catch (parseError) {
-                             errorMsg += " (Could not parse error response body)";
-                        }
+                    if (responseData && responseData.detail) {
+                        // Use detail from FastAPI error response if available
+                        errorMsg += ` - ${JSON.stringify(responseData.detail)}`;
+                    } else if (responseData) {
+                         errorMsg += ` - ${JSON.stringify(responseData)}`;
                     } else {
-                         // Handle non-JSON error response (e.g., plain text, HTML)
-                         const textError = await response.text();
-                         errorMsg += ` - Response: ${textError.substring(0, 200)}...`; // Show snippet
+                         // Fallback if response wasn't JSON or parsing failed
+                         try {
+                             const textError = await response.text(); // Try reading as text
+                             errorMsg += ` - Response: ${textError.substring(0, 200)}...`;
+                         } catch(textErr) {
+                             errorMsg += " (Could not read error response body)";
+                         }
                     }
                     throw new Error(errorMsg);
                 }
 
-                 if (!responseContentType || !responseContentType.includes("application/json")) {
-                    throw new Error(`Unexpected content type: ${responseContentType}. Expected JSON.`);
+                // If response is OK but not JSON (unexpected)
+                if (!responseData) {
+                     throw new Error(`Unexpected response type: ${responseContentType}. Expected JSON.`);
                 }
 
-                const result = await response.json();
-                console.log("Received result:", result);
-                displayResult(result);
+                console.log("Received result:", responseData);
+                displayResult(responseData); // Display the parsed JSON data
 
             } catch (error) {
                 console.error('Fetch error:', error);

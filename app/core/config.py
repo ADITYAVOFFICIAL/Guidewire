@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Model/Feature Paths (relative to where the app runs, e.g., inside container)
     # --- Ensure these files are copied to these locations in your Docker image ---
-    MODEL_FILE_PATH: str = "/Users/adityaverma/Documents/GitHub/Guidewire/app/ml_models/xgboost_pod_failure_model_best.json"
+    MODEL_FILE_PATH: str = "/Users/adityaverma/Documents/GitHub/Guidewire/app/ml_models/model_Random_Forest.joblib"
     FEATURE_FILE_PATH: str = "/Users/adityaverma/Documents/GitHub/Guidewire/app/ml_models/features.joblib"
     # --- ADDED: Path for node data file ---
     # Make sure this file is also available at this path in the running environment
