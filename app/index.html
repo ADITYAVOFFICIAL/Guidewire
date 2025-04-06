@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guidewire FastAPI Client</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="mb-4">Guidewire FastAPI Client</h1>
+        <form id="predictForm">
+            <div class="mb-3">
+                <label for="pod_name" class="form-label">Pod Name</label>
+                <input type="text" class="form-control" id="pod_name" name="pod_name" required>
+            </div>
+            <div class="mb-3">
+                <label for="cpu_milli" class="form-label">CPU Milli</label>
+                <input type="number" class="form-control" id="cpu_milli" name="cpu_milli">
+            </div>
+            <div class="mb-3">
+                <label for="memory_mib" class="form-label">Memory Mib</label>
+                <input type="number" class="form-control" id="memory_mib" name="memory_mib">
+            </div>
+            <div class="mb-3">
+                <label for="num_gpu" class="form-label">Number of GPUs</label>
+                <input type="number" class="form-control" id="num_gpu" name="num_gpu">
+            </div>
+            <div class="mb-3">
+                <label for="gpu_milli" class="form-label">GPU Milli</label>
+                <input type="number" class="form-control" id="gpu_milli" name="gpu_milli">
+            </div>
+            <div class="mb-3">
+                <label for="qos" class="form-label">QoS</label>
+                <select class="form-select" id="qos" name="qos">
+                    <option value="BE">BE</option>
+                    <option value="LS">LS</option>
+                    <option value="Burstable">Burstable</option>
+                    <option value="Guaranteed">Guaranteed</option>
+                    <option value="Unknown">Unknown</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Predict and Remediate</button>
+        </form>
+        <div class="mt-4" id="result"></div>
+    </div>
+
+    <script>
+        document.getElementById('predictForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const data = {
+                pod_name: document.getElementById('pod_name').value,
+                cpu_milli: Number(document.getElementById('cpu_milli').value) || null,
+                memory_mib: Number(document.getElementById('memory_mib').value) || null,
+                num_gpu: Number(document.getElementById('num_gpu').value) || null,
+                gpu_milli: Number(document.getElementById('gpu_milli').value) || null,
+                qos: document.getElementById('qos').value
+            };
+
+            try {
+                const response = await fetch('/api/v1/remediation/predict-and-remediate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const result = await response.json();
+                document.getElementById('result').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
+            }
+        });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
